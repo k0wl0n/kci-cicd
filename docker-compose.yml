@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  laravel-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: laravel-app-local
+    container_name: laravel-app-local
+    volumes:
+      - ./laravel-app:/var/www/html
+    ports:
+      - "8000:80"
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_KEY=base64:TlgqH6z2bVskKQDoaF/fQg+S4O3zd8iqY01yuEa7gu4=

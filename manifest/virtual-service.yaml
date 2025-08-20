@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: laravel-app
+  namespace: laravel-app
+spec:
+  hosts:
+    - "laravel.kci.dpdns.org"
+  gateways:
+    - istio-system/apps
+  http:
+    - match:
+        - uri:
+            prefix: /
+      route:
+        - destination:
+            host: laravel-app
+            port:
+              number: 80

@@ -1,0 +1,95 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  PROJECT_ID: sandbox-wahyu-anggana
+  REGISTRY: asia-southeast1-docker.pkg.dev
+  REGISTRY_REPO: kci-dev
+  IMAGE_NAME: laravel-app
+  DEPLOYMENT_REPO: ${{ secrets.DEPLOYMENT_REPO }}
+  DEPLOYMENT_REPO_TOKEN: ${{ secrets.DEPLOYMENT_REPO_TOKEN }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Required for Workload Identity Federation
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Setup Google Cloud auth with Workload Identity Federation
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: 'projects/sandbox-wahyu-anggana/locations/global/workloadIdentityPools/my-gke-cluster-github-pool/providers/github-provider'
+          service_account: 'my-gke-cluster-github-actions@sandbox-wahyu-anggana.iam.gserviceaccount.com'
+
+      # Configure Docker to use the gcloud command-line tool for authentication
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      # Configure Docker to use the gcloud credential helper for artifact registry
+      - name: Docker auth for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      # Build and tag the Docker image
+      - name: Build Docker image
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          docker build -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:$SHORT_SHA -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:latest .
+
+      # Push the Docker image to Google Artifact Registry
+      - name: Push to Artifact Registry
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:$SHORT_SHA
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:latest
+
+  build-and-push-manifests:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Install kustomize
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v1
+        with:
+          kustomize-version: "4.5.7"
+      
+      # Update the image tag in kustomization.yaml
+      - name: Update Kubernetes resources
+        env:
+          IMAGE_TAG: ${{ github.sha | slice(0, 7) }}
+        run: |
+          cd manifest
+          kustomize edit set image laravel-app=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+          cat kustomization.yaml
+
+      # Push Kustomize manifests to GitOps repo
+      - name: Push Kustomize manifests to GitOps repo
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+          # You'll need to set up the REPO_TOKEN secret in your repository settings
+          # with a personal access token that has permissions to push to the destination repo
+          git clone https://${{ secrets.REPO_TOKEN }}@github.com/k0wl0n/kci-manifest.git
+          mkdir -p laravel-app
+          cp -r ../manifest/* ./laravel-app/
+          git add .
+          git diff --staged --quiet || git commit -m "Deploy laravel-app ${{ github.sha | slice(0, 7) }}"
+          git push
