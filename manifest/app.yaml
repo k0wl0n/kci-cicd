@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: git@github.com:k0wl0n/kci-manifest.git
     targetRevision: main
-    path: deploy
+    path: laravel-app
   destination:
     server: https://kubernetes.default.svc
     namespace: staging
