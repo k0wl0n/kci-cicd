@@ -74,10 +74,11 @@ jobs:
       # Update the image tag in kustomization.yaml
       - name: Update Kubernetes resources
         env:
-          IMAGE_TAG: ${{ github.sha | slice(0, 7) }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           cd manifest
-          kustomize edit set image laravel-app=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          kustomize edit set image laravel-app=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:$SHORT_SHA
           cat kustomization.yaml
 
       # Push Kustomize manifests to GitOps repo
@@ -91,5 +92,6 @@ jobs:
           mkdir -p laravel-app
           cp -r ../manifest/* ./laravel-app/
           git add .
-          git diff --staged --quiet || git commit -m "Deploy laravel-app ${{ github.sha | slice(0, 7) }}"
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          git diff --staged --quiet || git commit -m "Deploy laravel-app $SHORT_SHA"
           git push
