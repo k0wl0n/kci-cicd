@@ -30,7 +30,7 @@ jobs:
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v1'
         with:
-          workload_identity_provider: 'projects/sandbox-wahyu-anggana/locations/global/workloadIdentityPools/my-gke-cluster-github-pool/providers/github-provider'
+          workload_identity_provider: 'projects/1079553567400/locations/global/workloadIdentityPools/my-gke-cluster-github-pool/providers/github-provider'
           service_account: 'my-gke-cluster-github-actions@sandbox-wahyu-anggana.iam.gserviceaccount.com'
 
       # Configure Docker to use the gcloud command-line tool for authentication
