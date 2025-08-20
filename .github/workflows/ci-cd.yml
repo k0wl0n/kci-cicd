@@ -86,12 +86,26 @@ jobs:
         run: |
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
-          # You'll need to set up the REPO_TOKEN secret in your repository settings
-          # with a personal access token that has permissions to push to the destination repo
+          
+          # Clone the manifest repository
           git clone https://${{ secrets.REPO_TOKEN }}@github.com/k0wl0n/kci-manifest.git
+          cd kci-manifest
+          
+          # Create directory structure if it doesn't exist
           mkdir -p laravel-app
-          cp -r ../manifest/* ./laravel-app/
+          
+          # Copy manifest files from the source repo
+          cp -r "$GITHUB_WORKSPACE/manifest/"* ./laravel-app/
+          
+          # Add, commit and push changes
           git add .
+          
           SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-          git diff --staged --quiet || git commit -m "Deploy laravel-app $SHORT_SHA"
-          git push
+          
+          # Check if there are any changes to commit
+          if git status --porcelain | grep .; then
+            git commit -m "Deploy laravel-app $SHORT_SHA"
+            git push
+          else
+            echo "No changes to commit"
+          fi
