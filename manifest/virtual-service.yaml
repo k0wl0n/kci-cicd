@@ -17,3 +17,11 @@ spec:
             host: laravel-app
             port:
               number: 80
+    - match:
+        - uri:
+            prefix: /laravel
+      route:
+        - destination:
+            host: laravel-app
+            port:
+              number: 80
